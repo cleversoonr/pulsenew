@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from asyncpg.exceptions import UndefinedTableError
 from sqlalchemy import Select, delete, select
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,10 +22,123 @@ from ..models.admin import (
 )
 
 
+def is_missing_admin_schema(error: Exception) -> bool:
+    if isinstance(error, UndefinedTableError):
+        return True
+    orig = getattr(error, "orig", None)
+    if isinstance(orig, UndefinedTableError):
+        return True
+    return False
+
+
 async def list_plans(session: AsyncSession) -> List[PlanCatalog]:
-    result = await session.scalars(
-        select(PlanCatalog).order_by(PlanCatalog.price_cents.asc())
+    try:
+        result = await session.scalars(
+            select(PlanCatalog).order_by(PlanCatalog.price_cents.asc())
+        )
+    except (SQLAlchemyError, UndefinedTableError) as exc:
+        if is_missing_admin_schema(exc):
+            return []
+        raise
+    return result.all()
+
+
+async def list_organizations(session: AsyncSession) -> List[Organization]:
+    try:
+        result = await session.scalars(select(Organization).order_by(Organization.created_at.asc()))
+    except (SQLAlchemyError, UndefinedTableError) as exc:
+        if is_missing_admin_schema(exc):
+            return []
+        raise
+    return result.all()
+
+
+async def _generate_unique_slug(session: AsyncSession, base_slug: str) -> str:
+    slug = base_slug
+    index = 2
+    while True:
+        stmt = select(Organization).where(Organization.slug == slug).limit(1)
+        try:
+            existing = await session.scalar(stmt)
+        except (SQLAlchemyError, UndefinedTableError) as exc:
+            if is_missing_admin_schema(exc):
+                return slug
+            raise
+        if not existing:
+            return slug
+        slug = f"{base_slug}-{index}"
+        index += 1
+
+
+def _slugify(value: str) -> str:
+    candidate = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    candidate = re.sub(r"-+", "-", candidate).strip("-")
+    return candidate or uuid4().hex
+
+
+async def create_organization(session: AsyncSession, payload: dict) -> Organization:
+    provided_slug = payload.get("slug")
+    base_slug = _slugify(provided_slug) if provided_slug else _slugify(payload.get("name", ""))
+    slug = await _generate_unique_slug(session, base_slug)
+    organization = Organization(
+        name=payload.get("name"),
+        slug=slug,
+        plan=payload.get("plan", "free"),
+        locale=payload.get("locale", "pt-BR"),
+        timezone=payload.get("timezone", "America/Sao_Paulo"),
+        max_users=payload.get("max_users"),
+        max_projects=payload.get("max_projects"),
+        max_storage_mb=payload.get("max_storage_mb"),
+        settings=payload.get("settings") or {},
     )
+    session.add(organization)
+    await session.commit()
+    await session.refresh(organization)
+    return organization
+
+
+async def get_organization(session: AsyncSession, organization_id: UUID) -> Organization:
+    organization = await session.get(Organization, organization_id)
+    if not organization:
+        raise NoResultFound("Organization not found")
+    return organization
+
+
+async def update_organization(session: AsyncSession, organization_id: UUID, payload: dict) -> Organization:
+    organization = await get_organization(session, organization_id)
+
+    if payload.get("slug"):
+        new_slug = _slugify(payload["slug"])
+        if new_slug != organization.slug:
+            organization.slug = await _generate_unique_slug(session, new_slug)
+
+    for field in ("name", "plan", "locale", "timezone", "max_users", "max_projects", "max_storage_mb"):
+        if field in payload and payload[field] is not None:
+            setattr(organization, field, payload[field])
+
+    if "settings" in payload and payload["settings"] is not None:
+        organization.settings = payload["settings"]
+
+    organization.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    await session.refresh(organization)
+    return organization
+
+
+async def list_tenants_by_organization(
+    session: AsyncSession, organization_id: UUID
+) -> List[Tenant]:
+    stmt = (
+        select(Tenant)
+        .where(Tenant.organization_id == organization_id)
+        .order_by(Tenant.created_at.asc())
+    )
+    try:
+        result = await session.scalars(stmt)
+    except (SQLAlchemyError, UndefinedTableError) as exc:
+        if is_missing_admin_schema(exc):
+            return []
+        raise
     return result.all()
 
 
@@ -71,7 +186,7 @@ async def assign_subscription(
         select(BillingSubscription)
         .where(
             BillingSubscription.organization_id == organization_id,
-            BillingSubscription.status.in_("trialing", "active", "past_due"),
+            BillingSubscription.status.in_(["trialing", "active", "past_due"]),
         )
         .order_by(BillingSubscription.created_at.desc())
         .limit(1)
@@ -141,12 +256,17 @@ async def get_branding(
 async def list_invoices(
     session: AsyncSession, organization_id: UUID, limit: int = 12
 ) -> List[Invoice]:
-    result = await session.scalars(
-        select(Invoice)
-        .where(Invoice.organization_id == organization_id)
-        .order_by(Invoice.issued_at.desc())
-        .limit(limit)
-    )
+    try:
+        result = await session.scalars(
+            select(Invoice)
+            .where(Invoice.organization_id == organization_id)
+            .order_by(Invoice.issued_at.desc())
+            .limit(limit)
+        )
+    except (SQLAlchemyError, UndefinedTableError) as exc:
+        if is_missing_admin_schema(exc):
+            return []
+        raise
     return result.all()
 
 
@@ -158,8 +278,14 @@ async def list_quota_usage_for_org(
         .join(Tenant, TenantQuotaUsage.tenant_id == Tenant.id)
         .where(Tenant.organization_id == organization_id)
         .order_by(TenantQuotaUsage.metric.asc(), TenantQuotaUsage.period_start.desc())
+        .options(selectinload(TenantQuotaUsage.tenant))
     )
-    result = await session.scalars(stmt)
+    try:
+        result = await session.scalars(stmt)
+    except (SQLAlchemyError, UndefinedTableError) as exc:
+        if is_missing_admin_schema(exc):
+            return []
+        raise
     return result.all()
 
 
@@ -196,24 +322,48 @@ async def upsert_quota_usage(
 async def get_organization_summary(
     session: AsyncSession, organization_id: UUID
 ):
-    organization = await session.get(Organization, organization_id)
+    try:
+        organization = await session.get(Organization, organization_id)
+    except (SQLAlchemyError, UndefinedTableError) as exc:
+        if is_missing_admin_schema(exc):
+            raise NoResultFound("Organization not found") from exc
+        raise
     if not organization:
         raise NoResultFound("Organization not found")
 
-    subscription = await get_active_subscription(session, organization_id)
+    try:
+        subscription = await get_active_subscription(session, organization_id)
+    except (SQLAlchemyError, UndefinedTableError) as exc:
+        if is_missing_admin_schema(exc):
+            subscription = None
+        else:
+            raise
     plan: Optional[PlanCatalog] = None
     if subscription:
         plan = subscription.plan
     else:
         plan_key = organization.plan
-        result = await session.scalars(select(PlanCatalog).where(PlanCatalog.key == plan_key))
-        plan = result.first()
+        try:
+            result = await session.scalars(select(PlanCatalog).where(PlanCatalog.key == plan_key))
+            plan = result.first()
+        except (SQLAlchemyError, UndefinedTableError) as exc:
+            if is_missing_admin_schema(exc):
+                plan = None
+            else:
+                raise
 
-    branding = await get_branding(session, organization_id)
+    try:
+        branding = await get_branding(session, organization_id)
+    except (SQLAlchemyError, UndefinedTableError) as exc:
+        if is_missing_admin_schema(exc):
+            branding = None
+        else:
+            raise
     quotas = await list_quota_usage_for_org(session, organization_id)
     invoices = await list_invoices(session, organization_id)
+    tenants = await list_tenants_by_organization(session, organization_id)
 
-    return organization, plan, subscription, branding, quotas, invoices
+    return organization, plan, subscription, branding, quotas, invoices, tenants
 
 
 async def list_quota_usage_by_tenant(
@@ -223,5 +373,6 @@ async def list_quota_usage_by_tenant(
         select(TenantQuotaUsage)
         .where(TenantQuotaUsage.tenant_id == tenant_id)
         .order_by(TenantQuotaUsage.period_start.desc())
+        .options(selectinload(TenantQuotaUsage.tenant))
     )
     return result.all()

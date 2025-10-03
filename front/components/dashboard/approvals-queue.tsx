@@ -2,7 +2,18 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Check, ShieldAlert, Timer } from "lucide-react";
 
-const approvals = [
+type RiskLevel = keyof typeof riskBadge;
+
+type Approval = {
+  id: string;
+  title: string;
+  type: string;
+  requester: string;
+  due: string;
+  risk: RiskLevel;
+};
+
+const approvals: Approval[] = [
   {
     id: "APP-102",
     title: "Atualizar scoring de riscos Satori",

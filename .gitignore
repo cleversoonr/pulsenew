@@ -1,0 +1,25 @@
+# macOS artifacts
+.DS_Store
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+.env.*
+*.env
+*.local
+
+# Node artifacts
+node_modules/
+
+# Project specific
+api/.venv/

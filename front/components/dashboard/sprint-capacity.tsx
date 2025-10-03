@@ -67,7 +67,9 @@ export function SprintCapacity() {
                       position="top"
                       fill="#a5f3fc"
                       fontSize={11}
-                      formatter={(value: number) => `${value}%`}
+                      formatter={(value) =>
+                        typeof value === "number" ? `${value}%` : value ?? ""
+                      }
                     />
                   </Area>
                 </AreaChart>

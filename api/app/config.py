@@ -1,6 +1,8 @@
 from functools import lru_cache
-from pydantic import BaseModel
 import os
+from typing import List
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class Settings(BaseModel):
@@ -12,6 +14,16 @@ class Settings(BaseModel):
 
     api_prefix: str = "/api"
     default_timezone: str = "America/Sao_Paulo"
+    cors_origins: List[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_origins(cls, value):
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        if isinstance(value, list):
+            return value
+        return ["http://localhost:3000"]
 
     @property
     def database_url(self) -> str:

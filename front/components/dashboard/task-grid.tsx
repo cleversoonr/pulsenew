@@ -36,7 +36,7 @@ export function TaskGrid() {
       {
         field: "status",
         headerName: "Status",
-        cellRenderer: ({ value }) => (
+        cellRenderer: ({ value }: { value: keyof typeof statusColors }) => (
           <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${statusColors[value]}`}>
             <span className="h-2 w-2 rounded-full bg-current/80" />
             {value}
@@ -48,7 +48,7 @@ export function TaskGrid() {
         field: "priority",
         headerName: "Prioridade",
         width: 140,
-        cellRenderer: ({ value }) => (
+        cellRenderer: ({ value }: { value: keyof typeof priorityColors }) => (
           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${priorityColors[value]}`}>
             {value}
           </span>
@@ -73,7 +73,7 @@ export function TaskGrid() {
         field: "dependencies",
         headerName: "Dependências",
         flex: 1,
-        valueFormatter: ({ value }) => (value.length ? value.join(", ") : "—"),
+        valueFormatter: ({ value }: { value: string[] }) => (value.length ? value.join(", ") : "—"),
       },
     ],
     []

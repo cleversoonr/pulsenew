@@ -185,7 +185,7 @@ class Invoice(Base):
     amount_cents: Mapped[int] = mapped_column(Integer, default=0)
     currency: Mapped[str] = mapped_column(String(8), default="BRL")
     line_items: Mapped[list] = mapped_column(JSON, default=list)
-    metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     external_reference: Mapped[Optional[str]] = mapped_column(String)
 
     subscription: Mapped[BillingSubscription] = relationship(back_populates="invoices")

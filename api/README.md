@@ -47,6 +47,8 @@ uvicorn app.main:app --reload --port 8080
 | `GET` | `/api/admin/organizations/{org_id}/branding` | Consulta personalização |
 | `PUT` | `/api/admin/organizations/{org_id}/branding` | Atualiza personalização |
 | `GET` | `/api/admin/organizations/{org_id}/summary` | Retorna visão consolidada (plano, assinatura, quotas, invoices) |
+| `GET` | `/api/admin/organizations` | Lista organizações disponíveis |
+| `GET` | `/api/admin/organizations/{org_id}/tenants` | Lista tenants pertencentes à organização |
 | `GET` | `/api/admin/tenants/{tenant_id}/quotas` | Lista consumo de quotas do tenant |
 | `POST` | `/api/admin/tenants/{tenant_id}/quotas` | Faz upsert do consumo de quota |
 

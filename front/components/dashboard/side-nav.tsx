@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import {
   BadgeCheck,
   Bot,
@@ -19,21 +20,28 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const navItems = [
-  { label: "Painel", icon: LayoutDashboard, href: "#dashboard" },
-  { label: "Projetos", icon: FolderKanban, href: "#projects" },
-  { label: "Insights", icon: Sparkles, href: "#insights" },
-  { label: "Sprints", icon: Workflow, href: "#sprints" },
-  { label: "Reuniões", icon: CalendarRange, href: "#meetings" },
-  { label: "Playbooks", icon: Bot, href: "#playbooks" },
-  { label: "Governança", icon: BadgeCheck, href: "#governance" },
-  { label: "Admin", icon: Settings2, href: "#admin" },
+type NavItem = {
+  label: string;
+  icon: LucideIcon;
+  href: string;
+  type?: "route" | "anchor";
+};
+
+const navItems: NavItem[] = [
+  { label: "Painel", icon: LayoutDashboard, href: "/", type: "route" },
+  { label: "Projetos", icon: FolderKanban, href: "/#projects", type: "anchor" },
+  { label: "Insights", icon: Sparkles, href: "/#insights", type: "anchor" },
+  { label: "Sprints", icon: Workflow, href: "/#sprints", type: "anchor" },
+{ label: "Reuniões", icon: CalendarRange, href: "/meetings", type: "route" },
+  { label: "Playbooks", icon: Bot, href: "/#playbooks", type: "anchor" },
+  { label: "Governança", icon: BadgeCheck, href: "/#governance", type: "anchor" },
+  { label: "Admin", icon: Settings2, href: "/admin", type: "route" },
 ];
 
-const bottomLinks = [
-  { label: "Knowledge Base", icon: LifeBuoy, href: "#support" },
-  { label: "Data Lineage", icon: Database, href: "#lineage" },
-  { label: "Analytics", icon: ChartSpline, href: "#analytics" },
+const bottomLinks: NavItem[] = [
+  { label: "Knowledge Base", icon: LifeBuoy, href: "/#support", type: "anchor" },
+  { label: "Data Lineage", icon: Database, href: "/#lineage", type: "anchor" },
+  { label: "Analytics", icon: ChartSpline, href: "/#analytics", type: "anchor" },
 ];
 
 export function SideNav() {
@@ -57,7 +65,12 @@ export function SideNav() {
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-400/70">Navegação</p>
             <div className="mt-3 space-y-1">
               {navItems.map((item) => {
-                const active = item.href === "#dashboard" ? pathname === "/" : pathname === item.href;
+                const active =
+                  item.type === "route"
+                    ? item.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(item.href)
+                    : false;
                 return (
                   <Link
                     key={item.label}

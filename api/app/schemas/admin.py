@@ -99,10 +99,10 @@ class InvoiceOut(BaseModel):
     amount_cents: int
     currency: str
     line_items: List[Dict[str, Any]]
-    metadata: Dict[str, Any]
+    metadata: Dict[str, Any] = Field(alias="metadata_json")
     external_reference: Optional[str]
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class QuotaUsageIn(BaseModel):
@@ -111,6 +111,14 @@ class QuotaUsageIn(BaseModel):
     period_end: date
     limit_value: Optional[float] = None
     used_value: float
+
+
+class TenantOut(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class QuotaUsageOut(BaseModel):
@@ -123,6 +131,7 @@ class QuotaUsageOut(BaseModel):
     used_value: float
     last_reset_at: datetime
     updated_at: datetime
+    tenant: Optional[TenantOut] = None
 
     @field_validator("limit_value", "used_value", mode="before")
     @classmethod
@@ -141,6 +150,53 @@ class OrganizationSummary(BaseModel):
     branding: Optional[BrandingOut]
     quotas: List[QuotaUsageOut]
     invoices: List[InvoiceOut]
+    tenants: List[TenantOut]
+
+
+class OrganizationCreate(BaseModel):
+    name: str
+    slug: Optional[str] = None
+    plan: str = "free"
+    locale: str = "pt-BR"
+    timezone: str = "America/Sao_Paulo"
+    max_users: Optional[int] = None
+    max_projects: Optional[int] = None
+    max_storage_mb: Optional[int] = None
+    settings: Dict[str, Any] = Field(default_factory=dict)
+
+
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    plan: Optional[str] = None
+    locale: Optional[str] = None
+    timezone: Optional[str] = None
+    max_users: Optional[int] = None
+    max_projects: Optional[int] = None
+    max_storage_mb: Optional[int] = None
+    settings: Optional[Dict[str, Any]] = None
+
+
+class OrganizationOut(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    plan: str
+    locale: str
+    timezone: str
+    max_users: Optional[int]
+    max_projects: Optional[int]
+    max_storage_mb: Optional[int]
+    settings: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+    @field_validator("settings", mode="before")
+    @classmethod
+    def default_settings(cls, value: Any) -> Dict[str, Any]:
+        return value or {}
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Message(BaseModel):
