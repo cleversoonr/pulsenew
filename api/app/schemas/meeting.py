@@ -20,31 +20,54 @@ class MeetingParticipantOut(MeetingParticipantIn):
     left_at: Optional[datetime] = None
 
 
+class MeetingTypeInfo(BaseModel):
+    id: UUID
+    key: str
+    name: str
+    description: Optional[str] = None
+
+
 class MeetingCreate(BaseModel):
-    organization_id: UUID
-    tenant_id: UUID
+    account_id: UUID
+    meeting_type_id: UUID
     project_id: Optional[UUID] = None
 
     title: str
-    meeting_type: str = Field(description="Enum: daily|refinement|alignment|retro|planning|sync|workshop|one_on_one")
     occurred_at: datetime
     duration_minutes: Optional[int] = None
     transcript_language: Optional[str] = None
     sentiment_score: Optional[float] = None
     source: str = Field(default="manual")
-    notes: Optional[str] = Field(default=None, description="Texto livre para registrar notas/transcrição simplificada")
+    status: str = Field(default="processed")
+    notes: Optional[str] = Field(default=None)
     participants: List[MeetingParticipantIn] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
 
 
+class MeetingUpdate(BaseModel):
+    account_id: UUID
+    meeting_type_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None
+
+    title: Optional[str] = None
+    occurred_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    transcript_language: Optional[str] = None
+    sentiment_score: Optional[float] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    participants: Optional[List[MeetingParticipantIn]] = None
+    metadata: Optional[dict] = None
+
+
 class MeetingOut(BaseModel):
     id: UUID
-    organization_id: UUID
-    tenant_id: UUID
+    account_id: UUID
+    meeting_type: MeetingTypeInfo
     project_id: Optional[UUID]
 
     title: str
-    meeting_type: str
     occurred_at: datetime
     duration_minutes: Optional[int]
     transcript_language: Optional[str]
@@ -52,14 +75,16 @@ class MeetingOut(BaseModel):
     source: str
     status: str
     metadata: dict
+    notes: Optional[str]
     created_at: datetime
+    updated_at: datetime
 
     participants: List[MeetingParticipantOut] = []
     chunk_count: int = 0
 
     @field_validator("sentiment_score", mode="before")
     @classmethod
-    def cast_decimal(cls, value):
+    def cast_decimal(cls, value):  # noqa: D417 - simple normalization helper
         if isinstance(value, Decimal):
             return float(value)
         return value

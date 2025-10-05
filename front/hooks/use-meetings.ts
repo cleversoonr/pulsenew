@@ -1,24 +1,66 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { meetingsApi } from "@/lib/meetings-api";
-import type { CreateMeetingInput, Meeting } from "@/lib/meetings-types";
+import type {
+  CreateMeetingInput,
+  Meeting,
+  MeetingQueryFilters,
+  UpdateMeetingInput,
+} from "@/lib/meetings-types";
 
-const meetingsKey = (tenantId?: string, projectId?: string) =>
-  tenantId ? (["meetings", tenantId, projectId] as const) : ([] as const);
+const meetingsKey = (
+  accountId?: string,
+  filters?: MeetingQueryFilters
+) =>
+  accountId
+    ? [
+        "meetings",
+        accountId,
+        filters?.meeting_type_id ?? null,
+        filters?.project_id ?? null,
+      ]
+    : ["meetings"];
 
-export function useMeetings(tenantId?: string, projectId?: string) {
+export function useMeetings(accountId?: string, filters?: MeetingQueryFilters) {
   return useQuery<Meeting[]>({
-    queryKey: meetingsKey(tenantId, projectId),
-    queryFn: () => meetingsApi.list(tenantId!, projectId),
-    enabled: Boolean(tenantId),
+    queryKey: meetingsKey(accountId, filters),
+    queryFn: () => meetingsApi.list(accountId!, filters),
+    enabled: Boolean(accountId),
   });
 }
 
-export function useCreateMeeting(tenantId?: string, projectId?: string) {
+export function useCreateMeeting(accountId?: string, filters?: MeetingQueryFilters) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateMeetingInput) => meetingsApi.create(payload),
     onSuccess: () => {
-      if (tenantId) queryClient.invalidateQueries({ queryKey: meetingsKey(tenantId, projectId) });
+      if (accountId) {
+        queryClient.invalidateQueries({ queryKey: meetingsKey(accountId, filters) });
+      }
+    },
+  });
+}
+
+export function useUpdateMeeting(accountId?: string, filters?: MeetingQueryFilters) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ meetingId, payload }: { meetingId: string; payload: UpdateMeetingInput }) =>
+      meetingsApi.update(meetingId, payload),
+    onSuccess: () => {
+      if (accountId) {
+        queryClient.invalidateQueries({ queryKey: meetingsKey(accountId, filters) });
+      }
+    },
+  });
+}
+
+export function useDeleteMeeting(accountId?: string, filters?: MeetingQueryFilters) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (meetingId: string) => meetingsApi.delete(meetingId, accountId!),
+    onSuccess: () => {
+      if (accountId) {
+        queryClient.invalidateQueries({ queryKey: meetingsKey(accountId, filters) });
+      }
     },
   });
 }

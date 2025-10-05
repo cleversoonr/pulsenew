@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../styles/ag-grid-theme.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -119,4 +120,45 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.dark-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: rgba(15, 23, 42, 0.85);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: calc(100% - 0.85rem) 52%;
+  background-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.dark-select:focus {
+  border-color: rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18);
+  outline: none;
+}
+
+.dark-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dark-select option,
+.dark-select optgroup {
+  background-color: rgba(15, 23, 42, 0.95);
+  color: #e2e8f0;
+}
+
+.dark-select option:checked {
+  background-color: rgba(16, 185, 129, 0.32);
+  color: #f8fafc;
+}
+
+.dark-select::-ms-expand {
+  display: none;
 }

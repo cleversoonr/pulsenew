@@ -92,6 +92,7 @@ export function TaskGrid() {
       </header>
       <div className="ag-theme-quartz-dark mt-6 h-[320px] overflow-hidden rounded-2xl border border-white/10">
         <AgGridReact
+          theme="legacy"
           rowData={tasks}
           columnDefs={columnDefs}
           rowHeight={60}

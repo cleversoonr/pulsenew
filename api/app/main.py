@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .database import lifespan
 from .routers import admin
-from .routers import meetings
+from .routers import meeting_types, meetings, sprints
 
 settings = get_settings()
 
@@ -24,6 +24,8 @@ app.add_middleware(
 
 app.include_router(admin.router, prefix=settings.api_prefix)
 app.include_router(meetings.router, prefix=settings.api_prefix)
+app.include_router(meeting_types.router, prefix=settings.api_prefix)
+app.include_router(sprints.router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["health"])

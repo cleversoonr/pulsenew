@@ -10,6 +10,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   LifeBuoy,
+  Settings,
   Settings2,
   Sparkles,
   Workflow,
@@ -31,10 +32,11 @@ const navItems: NavItem[] = [
   { label: "Painel", icon: LayoutDashboard, href: "/", type: "route" },
   { label: "Projetos", icon: FolderKanban, href: "/#projects", type: "anchor" },
   { label: "Insights", icon: Sparkles, href: "/#insights", type: "anchor" },
-  { label: "Sprints", icon: Workflow, href: "/#sprints", type: "anchor" },
+  { label: "Sprints", icon: Workflow, href: "/sprints", type: "route" },
 { label: "Reuniões", icon: CalendarRange, href: "/meetings", type: "route" },
   { label: "Playbooks", icon: Bot, href: "/#playbooks", type: "anchor" },
   { label: "Governança", icon: BadgeCheck, href: "/#governance", type: "anchor" },
+  { label: "Configurações", icon: Settings, href: "/settings", type: "route" },
   { label: "Admin", icon: Settings2, href: "/admin", type: "route" },
 ];
 

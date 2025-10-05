@@ -9,60 +9,70 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_session
 from ..schemas.admin import (
-    BrandingOut,
-    BrandingUpdate,
+    AccountCreate,
+    AccountOut,
+    AccountUpdate,
     Message,
-    OrganizationCreate,
-    OrganizationOut,
-    OrganizationSummary,
-    OrganizationUpdate,
     PlanCreate,
     PlanOut,
     PlanUpdate,
-    QuotaUsageIn,
-    QuotaUsageOut,
-    SubscriptionAssign,
-    SubscriptionOut,
-    TenantOut,
+    ProjectOut,
+    UserOut,
 )
 from ..services import admin as admin_service
 
-SCHEMA_NOT_READY_MESSAGE = "Schema de administração não inicializada. Execute pulsehub-db-schema.sql no banco antes de usar o módulo."
+SCHEMA_NOT_READY_MESSAGE = "Schema de administração não inicializado. Execute pulsehub-db-schema.sql no banco antes de usar o módulo."
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+# ===== Plans =====
+
+
 @router.get("/plans", response_model=List[PlanOut])
 async def list_plans(session: AsyncSession = Depends(get_session)):
+    """Lista todos os planos disponíveis."""
     plans = await admin_service.list_plans(session)
     return plans
 
 
 @router.post("/plans", response_model=PlanOut, status_code=status.HTTP_201_CREATED)
 async def create_plan(payload: PlanCreate, session: AsyncSession = Depends(get_session)):
-    plan = await admin_service.create_plan(session, payload.model_dump())
+    """Cria um novo plano."""
+    try:
+        plan = await admin_service.create_plan(session, payload.model_dump())
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
     return plan
 
 
 @router.put("/plans/{plan_id}", response_model=PlanOut)
 async def update_plan(plan_id: UUID, payload: PlanUpdate, session: AsyncSession = Depends(get_session)):
+    """Atualiza um plano existente."""
     try:
         plan = await admin_service.update_plan(session, plan_id, payload.model_dump(exclude_unset=True))
-    except NoResultFound as exc:  # pragma: no cover - we surface via HTTP
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except NoResultFound as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plano não encontrado") from exc
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
     return plan
 
 
-@router.delete("/plans/{plan_id}", response_model=Message, status_code=status.HTTP_200_OK)
+@router.delete("/plans/{plan_id}", response_model=Message)
 async def delete_plan(plan_id: UUID, session: AsyncSession = Depends(get_session)):
-    await admin_service.delete_plan(session, plan_id)
-    return Message(detail="Plan removed")
-
-
-@router.post("/organizations", response_model=OrganizationOut, status_code=status.HTTP_201_CREATED)
-async def create_organization(payload: OrganizationCreate, session: AsyncSession = Depends(get_session)):
+    """Remove um plano."""
     try:
-        organization = await admin_service.create_organization(session, payload.model_dump())
+        await admin_service.delete_plan(session, plan_id)
     except SQLAlchemyError as exc:
         if admin_service.is_missing_admin_schema(exc):
             raise HTTPException(
@@ -70,23 +80,62 @@ async def create_organization(payload: OrganizationCreate, session: AsyncSession
                 detail=SCHEMA_NOT_READY_MESSAGE,
             ) from exc
         raise
-    return organization
+    return Message(detail="Plano removido com sucesso")
 
 
-@router.put("/organizations/{organization_id}", response_model=OrganizationOut)
-async def update_organization(
-    organization_id: UUID,
-    payload: OrganizationUpdate,
+# ===== Accounts =====
+
+
+@router.get("/accounts", response_model=List[AccountOut])
+async def list_accounts(session: AsyncSession = Depends(get_session)):
+    """Lista todas as contas cadastradas."""
+    accounts = await admin_service.list_accounts(session)
+    return accounts
+
+
+@router.get("/accounts/{account_id}", response_model=AccountOut)
+async def get_account(account_id: UUID, session: AsyncSession = Depends(get_session)):
+    """Retorna os detalhes de uma conta."""
+    account = await admin_service.get_account(session, account_id)
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conta não encontrada")
+    return account
+
+
+@router.post("/accounts", response_model=AccountOut, status_code=status.HTTP_201_CREATED)
+async def create_account(payload: AccountCreate, session: AsyncSession = Depends(get_session)):
+    """Cria uma nova conta (empresa cliente)."""
+    try:
+        account = await admin_service.create_account(session, payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
+    return account
+
+
+@router.put("/accounts/{account_id}", response_model=AccountOut)
+async def update_account(
+    account_id: UUID,
+    payload: AccountUpdate,
     session: AsyncSession = Depends(get_session),
 ):
+    """Atualiza uma conta existente."""
     try:
-        organization = await admin_service.update_organization(
+        account = await admin_service.update_account(
             session,
-            organization_id,
+            account_id,
             payload.model_dump(exclude_unset=True),
         )
     except NoResultFound as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conta não encontrada") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         if admin_service.is_missing_admin_schema(exc):
             raise HTTPException(
@@ -94,26 +143,14 @@ async def update_organization(
                 detail=SCHEMA_NOT_READY_MESSAGE,
             ) from exc
         raise
-    return organization
+    return account
 
 
-@router.post(
-    "/organizations/{organization_id}/subscription",
-    response_model=SubscriptionOut,
-)
-async def assign_subscription(
-    organization_id: UUID,
-    payload: SubscriptionAssign,
-    session: AsyncSession = Depends(get_session),
-):
+@router.delete("/accounts/{account_id}", response_model=Message)
+async def delete_account(account_id: UUID, session: AsyncSession = Depends(get_session)):
+    """Remove uma conta."""
     try:
-        subscription = await admin_service.assign_subscription(
-            session,
-            organization_id,
-            payload.model_dump(),
-        )
-    except NoResultFound as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        await admin_service.delete_account(session, account_id)
     except SQLAlchemyError as exc:
         if admin_service.is_missing_admin_schema(exc):
             raise HTTPException(
@@ -121,16 +158,14 @@ async def assign_subscription(
                 detail=SCHEMA_NOT_READY_MESSAGE,
             ) from exc
         raise
-    return subscription
+    return Message(detail="Conta removida com sucesso")
 
 
-@router.get(
-    "/organizations/{organization_id}/branding",
-    response_model=BrandingOut,
-)
-async def get_branding(organization_id: UUID, session: AsyncSession = Depends(get_session)):
+@router.get("/accounts/{account_id}/projects", response_model=List[ProjectOut])
+async def list_projects(account_id: UUID, session: AsyncSession = Depends(get_session)):
+    """Lista projetos associados a uma conta."""
     try:
-        branding = await admin_service.get_branding(session, organization_id)
+        projects = await admin_service.list_projects(session, account_id)
     except SQLAlchemyError as exc:
         if admin_service.is_missing_admin_schema(exc):
             raise HTTPException(
@@ -138,26 +173,14 @@ async def get_branding(organization_id: UUID, session: AsyncSession = Depends(ge
                 detail=SCHEMA_NOT_READY_MESSAGE,
             ) from exc
         raise
-    if not branding:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Branding profile not found")
-    return branding
+    return projects
 
 
-@router.put(
-    "/organizations/{organization_id}/branding",
-    response_model=BrandingOut,
-)
-async def upsert_branding(
-    organization_id: UUID,
-    payload: BrandingUpdate,
-    session: AsyncSession = Depends(get_session),
-):
+@router.get("/accounts/{account_id}/users", response_model=List[UserOut])
+async def list_users(account_id: UUID, session: AsyncSession = Depends(get_session)):
+    """Lista usuários pertencentes a uma conta."""
     try:
-        branding = await admin_service.update_branding(
-            session,
-            organization_id,
-            payload.model_dump(exclude_unset=True),
-        )
+        users = await admin_service.list_users(session, account_id)
     except SQLAlchemyError as exc:
         if admin_service.is_missing_admin_schema(exc):
             raise HTTPException(
@@ -165,82 +188,4 @@ async def upsert_branding(
                 detail=SCHEMA_NOT_READY_MESSAGE,
             ) from exc
         raise
-    return branding
-
-
-@router.get(
-    "/organizations/{organization_id}/summary",
-    response_model=OrganizationSummary,
-)
-async def organization_summary(
-    organization_id: UUID, session: AsyncSession = Depends(get_session)
-):
-    try:
-        organization, plan, subscription, branding, quotas, invoices, tenants = await admin_service.get_organization_summary(
-            session, organization_id
-        )
-    except NoResultFound as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except SQLAlchemyError as exc:
-        if admin_service.is_missing_admin_schema(exc):
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=SCHEMA_NOT_READY_MESSAGE,
-            ) from exc
-        raise
-
-    return OrganizationSummary(
-        organization_id=organization.id,
-        plan=plan,
-        subscription=subscription,
-        branding=branding,
-        quotas=quotas,
-        invoices=invoices,
-        tenants=tenants,
-    )
-
-
-@router.get("/tenants/{tenant_id}/quotas", response_model=List[QuotaUsageOut])
-async def list_quota_usage(tenant_id: UUID, session: AsyncSession = Depends(get_session)):
-    quotas = await admin_service.list_quota_usage_by_tenant(session, tenant_id)
-    return quotas
-
-
-@router.post(
-    "/tenants/{tenant_id}/quotas",
-    response_model=QuotaUsageOut,
-    status_code=status.HTTP_201_CREATED,
-)
-async def upsert_quota_usage(
-    tenant_id: UUID,
-    payload: QuotaUsageIn,
-    session: AsyncSession = Depends(get_session),
-):
-    try:
-        quota = await admin_service.upsert_quota_usage(
-            session,
-            tenant_id,
-            payload.model_dump(),
-        )
-    except SQLAlchemyError as exc:
-        if admin_service.is_missing_admin_schema(exc):
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=SCHEMA_NOT_READY_MESSAGE,
-            ) from exc
-        raise
-    return quota
-
-
-@router.get("/organizations", response_model=List[OrganizationOut])
-async def list_organizations(session: AsyncSession = Depends(get_session)):
-    organizations = await admin_service.list_organizations(session)
-    return organizations
-
-
-@router.get("/organizations/{organization_id}/tenants", response_model=List[TenantOut])
-async def list_tenants(
-    organization_id: UUID, session: AsyncSession = Depends(get_session)
-):
-    tenants = await admin_service.list_tenants_by_organization(session, organization_id)
-    return tenants
+    return users
