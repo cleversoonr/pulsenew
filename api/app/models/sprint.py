@@ -19,7 +19,9 @@ class Sprint(Base):
     __tablename__ = "sprint"
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    project_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("project.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[Optional[UUID]] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("project.id", ondelete="SET NULL"), nullable=True
+    )
     account_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("account.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     goal: Mapped[Optional[str]] = mapped_column(Text)
@@ -30,7 +32,7 @@ class Sprint(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
 
-    project: Mapped["Project"] = relationship("Project" , back_populates="sprints")
+    project: Mapped[Optional["Project"]] = relationship("Project", back_populates="sprints")
     account: Mapped["Account"] = relationship("Account")
     assignments: Mapped[List["SprintTask"]] = relationship(
         "SprintTask", back_populates="sprint", cascade="all, delete-orphan"

@@ -3,10 +3,14 @@ import type {
   Account,
   CreateAccountInput,
   CreatePlanInput,
+  CreateProjectInput,
+  CreateUserInput,
   Plan,
   Project,
   UpdateAccountInput,
   UpdatePlanInput,
+  UpdateProjectInput,
+  UpdateUserInput,
   User,
 } from "./admin-types";
 
@@ -70,6 +74,46 @@ export async function getProjects(accountId: string) {
   return apiFetch<Project[]>(`/api/admin/accounts/${accountId}/projects`);
 }
 
+export async function createProject(accountId: string, payload: CreateProjectInput) {
+  return apiFetch<Project>(`/api/admin/accounts/${accountId}/projects`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function updateProject(accountId: string, projectId: string, payload: UpdateProjectInput) {
+  return apiFetch<Project>(`/api/admin/accounts/${accountId}/projects/${projectId}`, {
+    method: "PUT",
+    body: payload,
+  });
+}
+
+export async function deleteProject(accountId: string, projectId: string) {
+  return apiFetch<{ detail: string }>(`/api/admin/accounts/${accountId}/projects/${projectId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getUsers(accountId: string) {
   return apiFetch<User[]>(`/api/admin/accounts/${accountId}/users`);
+}
+
+export async function createUser(accountId: string, payload: CreateUserInput) {
+  return apiFetch<User>(`/api/admin/accounts/${accountId}/users`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function updateUser(accountId: string, userId: string, payload: UpdateUserInput) {
+  return apiFetch<User>(`/api/admin/accounts/${accountId}/users/${userId}`, {
+    method: "PUT",
+    body: payload,
+  });
+}
+
+export async function deleteUser(accountId: string, userId: string) {
+  return apiFetch<{ detail: string }>(`/api/admin/accounts/${accountId}/users/${userId}`, {
+    method: "DELETE",
+  });
 }

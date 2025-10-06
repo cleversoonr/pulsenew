@@ -65,10 +65,27 @@ CREATE TABLE IF NOT EXISTS account (
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
+-- ===== Áreas (departamentos/times) =====
+CREATE TABLE IF NOT EXISTS area (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id      uuid NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  key             text NOT NULL,
+  name            text NOT NULL,
+  description     text,
+  is_active       boolean NOT NULL DEFAULT true,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (account_id, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_area_account ON area(account_id);
+CREATE INDEX IF NOT EXISTS idx_area_active ON area(is_active);
+
 -- ===== Usuários =====
 CREATE TABLE IF NOT EXISTS user_app (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id      uuid NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  area_id         uuid REFERENCES area(id) ON DELETE SET NULL,
   email           citext NOT NULL UNIQUE,
   full_name       text NOT NULL,
   picture_url     text,
@@ -81,6 +98,8 @@ CREATE TABLE IF NOT EXISTS user_app (
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS idx_user_app_area ON user_app(area_id);
 
 -- ===== Perfil de acesso (papéis simples por conta) =====
 CREATE TABLE IF NOT EXISTS profile (
@@ -139,7 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_project_created_at ON project(created_at);
 -- ===== Sprints =====
 CREATE TABLE IF NOT EXISTS sprint (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id      uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  project_id      uuid REFERENCES project(id) ON DELETE SET NULL,
   account_id      uuid NOT NULL REFERENCES account(id) ON DELETE CASCADE,
   name            text NOT NULL,
   goal            text,
@@ -249,6 +268,7 @@ CREATE TABLE IF NOT EXISTS meeting_type (
   key             text NOT NULL,
   name            text NOT NULL,
   description     text,
+  prompt          text,
   is_active       boolean NOT NULL DEFAULT true,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
@@ -266,6 +286,7 @@ CREATE TABLE IF NOT EXISTS meeting (
   occurred_at         timestamptz NOT NULL,
   duration_minutes    integer,
   transcript_language text,
+  transcription       text,
   sentiment_score     numeric(5,2),
   source              text NOT NULL DEFAULT 'manual',
   status              text NOT NULL DEFAULT 'processed',

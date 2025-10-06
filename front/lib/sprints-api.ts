@@ -7,8 +7,10 @@ import type {
 } from "@/lib/sprints-types";
 
 export const sprintsApi = {
-  list: (accountId: string, projectId: string, status?: string) => {
-    const params = new URLSearchParams({ account_id: accountId, project_id: projectId });
+  list: (accountId: string, projectId?: string | null, status?: string, withoutProject = false) => {
+    const params = new URLSearchParams({ account_id: accountId });
+    if (projectId) params.set("project_id", projectId);
+    if (withoutProject) params.set("without_project", "true");
     if (status) params.set("status", status);
     return apiFetch<Sprint[]>(`/api/sprints?${params.toString()}`);
   },
@@ -18,7 +20,10 @@ export const sprintsApi = {
   update: (sprintId: string, payload: UpdateSprintInput) =>
     apiFetch<Sprint>(`/api/sprints/${sprintId}`, { method: "PUT", body: payload }),
   remove: (sprintId: string) => apiFetch<void>(`/api/sprints/${sprintId}`, { method: "DELETE" }),
-  tasks: (accountId: string, projectId: string, status?: string) => {
+  tasks: (accountId: string, projectId?: string | null, status?: string) => {
+    if (!projectId) {
+      return Promise.resolve([] as TaskSummary[]);
+    }
     const params = new URLSearchParams({ account_id: accountId, project_id: projectId });
     if (status) params.set("status", status);
     return apiFetch<TaskSummary[]>(`/api/sprints/available-tasks?${params.toString()}`);

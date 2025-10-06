@@ -4,7 +4,7 @@ from datetime import datetime, date
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class PlanBase(BaseModel):
@@ -80,15 +80,31 @@ class Message(BaseModel):
     detail: str
 
 
-class ProjectOut(BaseModel):
-    id: UUID
-    account_id: UUID
-    name: str
+class ProjectBase(BaseModel):
     key: str
+    name: str
     description: Optional[str] = None
-    status: str
+    status: str = Field(default="active")
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+
+
+class ProjectCreate(ProjectBase):
+    pass
+
+
+class ProjectUpdate(BaseModel):
+    key: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+
+class ProjectOut(ProjectBase):
+    id: UUID
+    account_id: UUID
     created_at: datetime
     updated_at: datetime
 
@@ -98,6 +114,7 @@ class ProjectOut(BaseModel):
 class UserOut(BaseModel):
     id: UUID
     account_id: UUID
+    area_id: Optional[UUID] = None
     email: str
     full_name: str
     picture_url: Optional[str] = None
@@ -109,3 +126,27 @@ class UserOut(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    full_name: str
+    area_id: Optional[UUID] = None
+    picture_url: Optional[str] = None
+    locale: str = "pt-BR"
+    timezone: Optional[str] = None
+    phone: Optional[str] = None
+    is_root: Optional[bool] = False
+    password: Optional[str] = Field(default=None, min_length=6)
+
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    area_id: Optional[UUID] = None
+    picture_url: Optional[str] = None
+    locale: Optional[str] = None
+    timezone: Optional[str] = None
+    phone: Optional[str] = None
+    is_root: Optional[bool] = None
+    password: Optional[str] = Field(default=None, min_length=6)

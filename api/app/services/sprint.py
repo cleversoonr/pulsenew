@@ -23,18 +23,23 @@ async def list_sprints(
     session: AsyncSession,
     *,
     account_id: UUID,
-    project_id: UUID,
+    project_id: Optional[UUID] = None,
+    without_project: bool = False,
     status: Optional[str] = None,
 ) -> List[Sprint]:
     stmt = (
         select(Sprint)
-        .where(Sprint.account_id == account_id, Sprint.project_id == project_id)
+        .where(Sprint.account_id == account_id)
         .options(
             selectinload(Sprint.assignments).selectinload(SprintTask.task),
             selectinload(Sprint.capacities),
         )
         .order_by(Sprint.starts_at.asc())
     )
+    if project_id:
+        stmt = stmt.where(Sprint.project_id == project_id)
+    elif without_project:
+        stmt = stmt.where(Sprint.project_id.is_(None))
     if status:
         stmt = stmt.where(Sprint.status == status)
 
@@ -92,8 +97,10 @@ async def create_sprint(session: AsyncSession, payload: SprintCreate) -> Sprint:
         if missing:
             raise ValueError("Uma ou mais tarefas informadas não foram encontradas")
         for task in tasks_by_id.values():
-            if task.project_id != payload.project_id:
+            if payload.project_id and task.project_id != payload.project_id:
                 raise ValueError("Todas as tarefas devem pertencer ao mesmo projeto do sprint")
+        if not payload.project_id:
+            raise ValueError("Selecione um projeto para adicionar tarefas ao sprint")
 
     sprint = Sprint(
         account_id=payload.account_id,
@@ -161,8 +168,10 @@ async def update_sprint(session: AsyncSession, sprint_id: UUID, payload: SprintU
             if missing:
                 raise ValueError("Uma ou mais tarefas informadas não foram encontradas")
             for task in tasks_by_id.values():
-                if task.project_id != sprint.project_id:
+                if sprint.project_id and task.project_id != sprint.project_id:
                     raise ValueError("Todas as tarefas devem pertencer ao mesmo projeto do sprint")
+            if not sprint.project_id:
+                raise ValueError("Defina um projeto antes de associar tarefas ao sprint")
         # Remove tarefas existentes
         await session.execute(delete(SprintTask).where(SprintTask.sprint_id == sprint.id))
         for assignment in _build_assignments(payload.tasks, sprint.account_id, sprint.id):
@@ -201,9 +210,11 @@ async def list_tasks_for_project(
     session: AsyncSession,
     *,
     account_id: UUID,
-    project_id: UUID,
+    project_id: Optional[UUID],
     status: Optional[str] = None,
 ) -> List[Task]:
+    if project_id is None:
+        return []
     stmt = select(Task).where(Task.project_id == project_id)
     if status:
         stmt = stmt.where(Task.status == status)

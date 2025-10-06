@@ -13,6 +13,7 @@ export type MeetingType = {
   key: string;
   name: string;
   description?: string | null;
+  prompt?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -23,6 +24,7 @@ export type CreateMeetingTypeInput = {
   name: string;
   key?: string | null;
   description?: string | null;
+  prompt?: string | null;
   is_active?: boolean;
 };
 
@@ -30,6 +32,7 @@ export type UpdateMeetingTypeInput = {
   name?: string;
   key?: string | null;
   description?: string | null;
+  prompt?: string | null;
   is_active?: boolean;
 };
 

@@ -16,8 +16,12 @@ from ..schemas.admin import (
     PlanCreate,
     PlanOut,
     PlanUpdate,
+    ProjectCreate,
     ProjectOut,
+    ProjectUpdate,
+    UserCreate,
     UserOut,
+    UserUpdate,
 )
 from ..services import admin as admin_service
 
@@ -176,6 +180,73 @@ async def list_projects(account_id: UUID, session: AsyncSession = Depends(get_se
     return projects
 
 
+@router.post(
+    "/accounts/{account_id}/projects",
+    response_model=ProjectOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_project(account_id: UUID, payload: ProjectCreate, session: AsyncSession = Depends(get_session)):
+    try:
+        project = await admin_service.create_project(session, account_id, payload.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
+    return project
+
+
+@router.put("/accounts/{account_id}/projects/{project_id}", response_model=ProjectOut)
+async def update_project(
+    account_id: UUID,
+    project_id: UUID,
+    payload: ProjectUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        project = await admin_service.update_project(
+            session,
+            account_id,
+            project_id,
+            payload.model_dump(exclude_unset=True),
+        )
+    except NoResultFound as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
+    return project
+
+
+@router.delete(
+    "/accounts/{account_id}/projects/{project_id}",
+    response_model=Message,
+)
+async def delete_project(account_id: UUID, project_id: UUID, session: AsyncSession = Depends(get_session)):
+    try:
+        await admin_service.delete_project(session, account_id, project_id)
+    except NoResultFound as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado") from exc
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
+    return Message(detail="Projeto removido com sucesso")
+
+
 @router.get("/accounts/{account_id}/users", response_model=List[UserOut])
 async def list_users(account_id: UUID, session: AsyncSession = Depends(get_session)):
     """Lista usuários pertencentes a uma conta."""
@@ -189,3 +260,70 @@ async def list_users(account_id: UUID, session: AsyncSession = Depends(get_sessi
             ) from exc
         raise
     return users
+
+
+@router.post(
+    "/accounts/{account_id}/users",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_user(account_id: UUID, payload: UserCreate, session: AsyncSession = Depends(get_session)):
+    try:
+        user = await admin_service.create_user(session, account_id, payload.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
+    return user
+
+
+@router.put("/accounts/{account_id}/users/{user_id}", response_model=UserOut)
+async def update_user(
+    account_id: UUID,
+    user_id: UUID,
+    payload: UserUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        user = await admin_service.update_user(
+            session,
+            account_id,
+            user_id,
+            payload.model_dump(exclude_unset=True),
+        )
+    except NoResultFound as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
+    return user
+
+
+@router.delete(
+    "/accounts/{account_id}/users/{user_id}",
+    response_model=Message,
+)
+async def delete_user(account_id: UUID, user_id: UUID, session: AsyncSession = Depends(get_session)):
+    try:
+        await admin_service.delete_user(session, account_id, user_id)
+    except NoResultFound as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado") from exc
+    except SQLAlchemyError as exc:
+        if admin_service.is_missing_admin_schema(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=SCHEMA_NOT_READY_MESSAGE,
+            ) from exc
+        raise
+    return Message(detail="Usuário removido com sucesso")

@@ -26,7 +26,7 @@ class SprintCapacityInput(BaseModel):
 
 class SprintBase(BaseModel):
     account_id: UUID
-    project_id: UUID
+    project_id: Optional[UUID] = None
     name: str
     goal: Optional[str] = None
     sprint_number: Optional[int] = None
@@ -41,6 +41,7 @@ class SprintCreate(SprintBase):
 
 
 class SprintUpdate(BaseModel):
+    project_id: Optional[UUID] = None
     name: Optional[str] = None
     goal: Optional[str] = None
     sprint_number: Optional[int] = None

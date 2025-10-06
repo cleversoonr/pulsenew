@@ -18,7 +18,8 @@ router = APIRouter(prefix="/sprints", tags=["sprints"])
 @router.get("/", response_model=List[SprintOut])
 async def list_sprints(
     account_id: UUID = Query(..., description="Identificador da conta"),
-    project_id: UUID = Query(..., description="Projeto ao qual o sprint pertence"),
+    project_id: Optional[UUID] = Query(None, description="Projeto ao qual o sprint pertence"),
+    without_project: bool = Query(False, description="Retorna somente sprints sem projeto"),
     status: Optional[str] = Query(None, description="Filtra por status"),
     session: AsyncSession = Depends(get_session),
 ):
@@ -26,6 +27,7 @@ async def list_sprints(
         session,
         account_id=account_id,
         project_id=project_id,
+        without_project=without_project,
         status=status,
     )
     return sprints
@@ -74,7 +76,7 @@ async def delete_sprint(sprint_id: UUID, session: AsyncSession = Depends(get_ses
 @router.get("/available-tasks", response_model=List[TaskSummary])
 async def list_available_tasks(
     account_id: UUID = Query(..., description="Identificador da conta"),
-    project_id: UUID = Query(..., description="Projeto ao qual as tarefas pertencem"),
+    project_id: Optional[UUID] = Query(None, description="Projeto ao qual as tarefas pertencem"),
     status: Optional[str] = Query(None, description="Filtra por status da tarefa"),
     session: AsyncSession = Depends(get_session),
 ):

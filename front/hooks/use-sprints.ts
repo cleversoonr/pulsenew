@@ -2,15 +2,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { sprintsApi } from "@/lib/sprints-api";
 import type { CreateSprintInput, UpdateSprintInput } from "@/lib/sprints-types";
 
-export function useSprints(accountId?: string, projectId?: string, status?: string) {
+export function useSprints(
+  accountId?: string,
+  projectId?: string | null,
+  status?: string,
+  withoutProject = false
+) {
   return useQuery({
-    queryKey: ["sprints", accountId, projectId, status],
-    queryFn: () => sprintsApi.list(accountId!, projectId!, status),
-    enabled: Boolean(accountId && projectId),
+    queryKey: ["sprints", accountId, projectId, status, withoutProject],
+    queryFn: () => sprintsApi.list(accountId!, projectId ?? null, status, withoutProject),
+    enabled: Boolean(accountId),
   });
 }
 
-export function useAvailableTasks(accountId?: string, projectId?: string, status?: string) {
+export function useAvailableTasks(accountId?: string, projectId?: string | null, status?: string) {
   return useQuery({
     queryKey: ["sprint-tasks", accountId, projectId, status],
     queryFn: () => sprintsApi.tasks(accountId!, projectId!, status),
@@ -18,34 +23,49 @@ export function useAvailableTasks(accountId?: string, projectId?: string, status
   });
 }
 
-export function useCreateSprint(accountId?: string, projectId?: string, status?: string) {
+export function useCreateSprint(
+  accountId?: string,
+  projectId?: string | null,
+  status?: string,
+  withoutProject = false
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateSprintInput) => sprintsApi.create(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sprints", accountId, projectId, status] });
+      queryClient.invalidateQueries({ queryKey: ["sprints", accountId, projectId, status, withoutProject] });
     },
   });
 }
 
-export function useUpdateSprint(accountId?: string, projectId?: string, status?: string) {
+export function useUpdateSprint(
+  accountId?: string,
+  projectId?: string | null,
+  status?: string,
+  withoutProject = false
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ sprintId, payload }: { sprintId: string; payload: UpdateSprintInput }) =>
       sprintsApi.update(sprintId, payload),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["sprints", accountId, projectId, status] });
+      queryClient.invalidateQueries({ queryKey: ["sprints", accountId, projectId, status, withoutProject] });
       queryClient.invalidateQueries({ queryKey: ["sprint", variables.sprintId] });
     },
   });
 }
 
-export function useDeleteSprint(accountId?: string, projectId?: string, status?: string) {
+export function useDeleteSprint(
+  accountId?: string,
+  projectId?: string | null,
+  status?: string,
+  withoutProject = false
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (sprintId: string) => sprintsApi.remove(sprintId),
     onSuccess: (_, sprintId) => {
-      queryClient.invalidateQueries({ queryKey: ["sprints", accountId, projectId, status] });
+      queryClient.invalidateQueries({ queryKey: ["sprints", accountId, projectId, status, withoutProject] });
       queryClient.removeQueries({ queryKey: ["sprint", sprintId] });
     },
   });

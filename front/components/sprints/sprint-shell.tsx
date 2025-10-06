@@ -35,9 +35,7 @@ import {
 import type {
   CreateSprintInput,
   Sprint,
-  SprintCapacityInput,
   SprintTask,
-  SprintTaskInput,
   TaskSummary,
   UpdateSprintInput,
 } from "@/lib/sprints-types";
@@ -48,6 +46,9 @@ const sprintStatusOptions = [
   { value: "active", label: "Em andamento" },
   { value: "closed", label: "Encerrado" },
 ] as const;
+
+const ALL_PROJECTS_OPTION = "__all__";
+const NO_PROJECT_OPTION = "__none__";
 
 const toOptionalNumber = (value: unknown) => {
   if (value === "" || value === null || value === undefined) return undefined;
@@ -114,35 +115,65 @@ function calculateTotals(tasks: SprintTask[]) {
 
 export function SprintShell() {
   const accountsQuery = useAccounts();
+  const accounts = accountsQuery.data ?? [];
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const projectsQuery = useProjects(selectedAccountId ?? undefined);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const activeAccountId =
+    selectedAccountId && accounts.some((account) => account.id === selectedAccountId)
+      ? selectedAccountId
+      : accounts[0]?.id ?? null;
+
+  const projectsQuery = useProjects(activeAccountId ?? undefined);
+  const projects = projectsQuery.data ?? [];
+  const [projectScope, setProjectScope] = useState<string>(ALL_PROJECTS_OPTION);
+  const isAllProjects = projectScope === ALL_PROJECTS_OPTION;
+  const isNoProject = projectScope === NO_PROJECT_OPTION;
+  const selectedProjectIsValid =
+    !isAllProjects && !isNoProject && projects.some((project) => project.id === projectScope);
+  const activeProjectId = selectedProjectIsValid ? projectScope : null;
+  const projectFilterId = selectedProjectIsValid ? projectScope : undefined;
+  const withoutProjectFilter = isNoProject;
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
-    if (!selectedAccountId && accountsQuery.data && accountsQuery.data.length > 0) {
-      setSelectedAccountId(accountsQuery.data[0].id);
-    }
-  }, [accountsQuery.data, selectedAccountId]);
+    setProjectScope(ALL_PROJECTS_OPTION);
+  }, [activeAccountId]);
 
   useEffect(() => {
-    if (!selectedProjectId && projectsQuery.data && projectsQuery.data.length > 0) {
-      setSelectedProjectId(projectsQuery.data[0].id);
+    if (!selectedProjectIsValid && !isAllProjects && !isNoProject) {
+      setProjectScope(ALL_PROJECTS_OPTION);
     }
-  }, [projectsQuery.data, selectedProjectId]);
+  }, [isAllProjects, isNoProject, selectedProjectIsValid]);
+
+  const appliedStatus = statusFilter !== "all" ? statusFilter : undefined;
 
   const sprintsQuery = useSprints(
-    selectedAccountId ?? undefined,
-    selectedProjectId ?? undefined,
-    statusFilter !== "all" ? statusFilter : undefined
+    activeAccountId ?? undefined,
+    projectFilterId,
+    appliedStatus,
+    withoutProjectFilter
   );
 
-  const createSprint = useCreateSprint(selectedAccountId ?? undefined, selectedProjectId ?? undefined, statusFilter !== "all" ? statusFilter : undefined);
-  const updateSprint = useUpdateSprint(selectedAccountId ?? undefined, selectedProjectId ?? undefined, statusFilter !== "all" ? statusFilter : undefined);
-  const deleteSprint = useDeleteSprint(selectedAccountId ?? undefined, selectedProjectId ?? undefined, statusFilter !== "all" ? statusFilter : undefined);
+  const createSprint = useCreateSprint(
+    activeAccountId ?? undefined,
+    projectFilterId,
+    appliedStatus,
+    withoutProjectFilter
+  );
+  const updateSprint = useUpdateSprint(
+    activeAccountId ?? undefined,
+    projectFilterId,
+    appliedStatus,
+    withoutProjectFilter
+  );
+  const deleteSprint = useDeleteSprint(
+    activeAccountId ?? undefined,
+    projectFilterId,
+    appliedStatus,
+    withoutProjectFilter
+  );
 
-  const tasksOptionsQuery = useAvailableTasks(selectedAccountId ?? undefined, selectedProjectId ?? undefined, undefined);
-  const usersQuery = useUsers(selectedAccountId ?? undefined);
+  const tasksOptionsQuery = useAvailableTasks(activeAccountId ?? undefined, activeProjectId ?? undefined, undefined);
+  const usersQuery = useUsers(activeAccountId ?? undefined);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
@@ -152,6 +183,20 @@ export function SprintShell() {
     setFeedback({ type, message });
     setTimeout(() => setFeedback(null), 4000);
   }, []);
+
+  const handleDelete = useCallback(
+    async (sprint: Sprint) => {
+      if (!confirm(`Remover o sprint "${sprint.name}"?`)) return;
+      try {
+        await deleteSprint.mutateAsync(sprint.id);
+        showFeedback("Sprint removido com sucesso", "success");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Não foi possível remover o sprint";
+        showFeedback(message, "error");
+      }
+    },
+    [deleteSprint, showFeedback]
+  );
 
   const gridData = sprintsQuery.data ?? [];
 
@@ -252,7 +297,7 @@ export function SprintShell() {
         suppressHeaderMenuButton: true,
       },
     ];
-  }, []);
+  }, [handleDelete]);
 
   const defaultColDef = useMemo<ColDef>(
     () => ({
@@ -263,25 +308,18 @@ export function SprintShell() {
     []
   );
 
-  const handleDelete = useCallback(
-    async (sprint: Sprint) => {
-      if (!confirm(`Remover o sprint "${sprint.name}"?`)) return;
-      try {
-        await deleteSprint.mutateAsync(sprint.id);
-        showFeedback("Sprint removido com sucesso", "success");
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Não foi possível remover o sprint";
-        showFeedback(message, "error");
-      }
-    },
-    [deleteSprint, showFeedback]
-  );
-
   const handleCreate = async (values: SprintFormValues) => {
-    if (!selectedAccountId || !selectedProjectId) return;
+    if (!activeAccountId) {
+      showFeedback("Selecione uma conta antes de criar o sprint", "error");
+      return;
+    }
+    if (!activeProjectId && (values.tasks?.length ?? 0) > 0) {
+      showFeedback("Associe um projeto para incluir tarefas neste sprint", "error");
+      return;
+    }
     const payload: CreateSprintInput = {
-      account_id: selectedAccountId,
-      project_id: selectedProjectId,
+      account_id: activeAccountId,
+      project_id: activeProjectId ?? null,
       name: values.name.trim(),
       goal: values.goal?.trim() || undefined,
       sprint_number: values.sprint_number ?? undefined,
@@ -337,6 +375,11 @@ export function SprintShell() {
       })),
     };
 
+    if (!editingSprint.project_id && (payload.tasks?.length ?? 0) > 0) {
+      showFeedback("Associe um projeto ao sprint antes de incluir tarefas", "error");
+      return;
+    }
+
     try {
       await updateSprint.mutateAsync({ sprintId: editingSprint.id, payload });
       showFeedback("Sprint atualizado com sucesso", "success");
@@ -347,7 +390,7 @@ export function SprintShell() {
     }
   };
 
-  const disableActions = !selectedAccountId || !selectedProjectId;
+  const disableActions = !activeAccountId;
   const tasksOptions = tasksOptionsQuery.data ?? [];
   const usersOptions = usersQuery.data ?? [];
 
@@ -367,33 +410,32 @@ export function SprintShell() {
           </div>
           <div className="flex items-center gap-2">
             <select
-              value={selectedAccountId ?? ""}
+              value={activeAccountId ?? ""}
               onChange={(event) => {
                 setSelectedAccountId(event.target.value || null);
-                setSelectedProjectId(null);
+                setProjectScope(ALL_PROJECTS_OPTION);
               }}
-              disabled={accountsQuery.isLoading || (accountsQuery.data?.length ?? 0) === 0}
+              disabled={accountsQuery.isLoading || accounts.length === 0}
               className="h-10 min-w-[200px] rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-100 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
             >
               <option value="" disabled>
                 Selecione uma conta
               </option>
-              {(accountsQuery.data ?? []).map((account) => (
+              {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>
               ))}
             </select>
             <select
-              value={selectedProjectId ?? ""}
-              onChange={(event) => setSelectedProjectId(event.target.value || null)}
-              disabled={!selectedAccountId || projectsQuery.isLoading}
+              value={projectScope}
+              onChange={(event) => setProjectScope(event.target.value)}
+              disabled={!activeAccountId || projectsQuery.isLoading}
               className="h-10 min-w-[200px] rounded-lg border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-100 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
             >
-              <option value="" disabled>
-                Selecione um projeto
-              </option>
-              {(projectsQuery.data ?? []).map((project) => (
+              <option value={ALL_PROJECTS_OPTION}>Todos os projetos</option>
+              <option value={NO_PROJECT_OPTION}>Sem projeto</option>
+              {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
@@ -416,6 +458,7 @@ export function SprintShell() {
                 <Button
                   className="gap-2 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-60"
                   disabled={disableActions}
+                  title={disableActions ? "Selecione uma conta para criar um sprint" : undefined}
                 >
                   <Plus className="h-4 w-4" />
                   Novo sprint
@@ -435,6 +478,17 @@ export function SprintShell() {
               </DialogContent>
             </Dialog>
           </div>
+          {activeAccountId && !projectsQuery.isLoading && projects.length === 0 ? (
+            <p className="w-full text-sm text-amber-300">
+              Você pode criar sprints sem projeto. Cadastre um projeto se quiser associar tarefas específicas.
+            </p>
+          ) : (
+            !activeProjectId && activeAccountId && (
+              <p className="w-full text-sm text-slate-300">
+                Tarefas só podem ser adicionadas quando um projeto é selecionado.
+              </p>
+            )
+          )}
         </div>
 
         {feedback && (

@@ -2,11 +2,13 @@
 
 import { useMemo } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ColDef } from "ag-grid-community";
+import { AllCommunityModule, ColDef, ModuleRegistry } from "ag-grid-community";
 import { Badge } from "@/components/ui/badge";
 import { tasks } from "@/lib/pulsehub-data";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
+
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 const statusColors: Record<string, string> = {
   Planned: "bg-slate-500/20 text-slate-100",

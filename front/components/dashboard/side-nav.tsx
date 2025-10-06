@@ -7,12 +7,14 @@ import {
   CalendarRange,
   ChartSpline,
   Database,
+  ListChecks,
   FolderKanban,
   LayoutDashboard,
   LifeBuoy,
   Settings,
   Settings2,
   Sparkles,
+  Users,
   Workflow,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,10 +32,12 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: "Painel", icon: LayoutDashboard, href: "/", type: "route" },
-  { label: "Projetos", icon: FolderKanban, href: "/#projects", type: "anchor" },
+  { label: "Projetos", icon: FolderKanban, href: "/projects", type: "route" },
+  { label: "Tarefas", icon: ListChecks, href: "/tasks", type: "route" },
   { label: "Insights", icon: Sparkles, href: "/#insights", type: "anchor" },
   { label: "Sprints", icon: Workflow, href: "/sprints", type: "route" },
-{ label: "Reuniões", icon: CalendarRange, href: "/meetings", type: "route" },
+  { label: "Usuários", icon: Users, href: "/users", type: "route" },
+  { label: "Reuniões", icon: CalendarRange, href: "/meetings", type: "route" },
   { label: "Playbooks", icon: Bot, href: "/#playbooks", type: "anchor" },
   { label: "Governança", icon: BadgeCheck, href: "/#governance", type: "anchor" },
   { label: "Configurações", icon: Settings, href: "/settings", type: "route" },

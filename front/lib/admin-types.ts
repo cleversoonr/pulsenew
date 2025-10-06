@@ -62,9 +62,21 @@ export type Project = {
   updated_at: string;
 };
 
+export type CreateProjectInput = {
+  key: string;
+  name: string;
+  description?: string | null;
+  status?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+};
+
+export type UpdateProjectInput = Partial<CreateProjectInput>;
+
 export type User = {
   id: string;
   account_id: string;
+  area_id?: string | null;
   email: string;
   full_name: string;
   picture_url?: string | null;
@@ -75,3 +87,17 @@ export type User = {
   created_at: string;
   updated_at: string;
 };
+
+export type CreateUserInput = {
+  email: string;
+  full_name: string;
+  area_id?: string | null;
+  picture_url?: string | null;
+  locale?: string;
+  timezone?: string | null;
+  phone?: string | null;
+  is_root?: boolean | null;
+  password?: string | null;
+};
+
+export type UpdateUserInput = Partial<CreateUserInput>;

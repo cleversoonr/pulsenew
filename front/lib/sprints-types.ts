@@ -42,7 +42,7 @@ export type SprintCapacity = SprintCapacityInput & {
 export type Sprint = {
   id: string;
   account_id: string;
-  project_id: string;
+  project_id: string | null;
   name: string;
   goal?: string | null;
   sprint_number?: number | null;
@@ -57,7 +57,7 @@ export type Sprint = {
 
 export type CreateSprintInput = {
   account_id: string;
-  project_id: string;
+  project_id?: string | null;
   name: string;
   goal?: string | null;
   sprint_number?: number | null;
@@ -68,7 +68,7 @@ export type CreateSprintInput = {
   capacities?: SprintCapacityInput[];
 };
 
-export type UpdateSprintInput = Partial<Omit<CreateSprintInput, "account_id" | "project_id" >> & {
+export type UpdateSprintInput = Partial<Omit<CreateSprintInput, "account_id">> & {
   tasks?: SprintTaskInput[];
   capacities?: SprintCapacityInput[];
 };

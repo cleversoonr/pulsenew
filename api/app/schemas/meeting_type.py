@@ -12,6 +12,7 @@ class MeetingTypeBase(BaseModel):
     name: str
     key: Optional[str] = Field(default=None, description="Identificador único por conta")
     description: Optional[str] = None
+    prompt: Optional[str] = Field(default=None, description="Prompt para IA processar a reunião")
     is_active: bool = True
 
 
@@ -23,6 +24,7 @@ class MeetingTypeUpdate(BaseModel):
     name: Optional[str] = None
     key: Optional[str] = None
     description: Optional[str] = None
+    prompt: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -32,6 +34,7 @@ class MeetingTypeOut(BaseModel):
     key: str
     name: str
     description: Optional[str]
+    prompt: Optional[str]
     is_active: bool
     created_at: datetime
     updated_at: datetime

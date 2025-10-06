@@ -4,13 +4,14 @@ from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func, text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import CITEXT, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
 
 if TYPE_CHECKING:  # evita import circular em tempo de execução
+    from .area import Area
     from .meeting import Meeting
     from .task import Task
     from .sprint import Sprint
@@ -95,6 +96,11 @@ class UserApp(Base):
         ForeignKey("account.id", ondelete="CASCADE"),
         nullable=False,
     )
+    area_id: Mapped[Optional[UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("area.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     email: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
     picture_url: Mapped[Optional[str]] = mapped_column(Text)
@@ -117,6 +123,7 @@ class UserApp(Base):
     )
 
     account: Mapped["Account"] = relationship(back_populates="users")
+    area: Mapped[Optional["Area"]] = relationship("Area")
 
 
 class Project(Base):
@@ -136,7 +143,11 @@ class Project(Base):
     key: Mapped[str] = mapped_column(Text, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String, nullable=False, default="active")
+    status: Mapped[str] = mapped_column(
+        Enum("draft", "active", "on_hold", "completed", "archived", name="project_status", create_type=False),
+        nullable=False,
+        server_default="active",
+    )
     start_date: Mapped[Optional[Date]] = mapped_column(Date)
     end_date: Mapped[Optional[Date]] = mapped_column(Date)
     created_by: Mapped[Optional[UUID]] = mapped_column(
